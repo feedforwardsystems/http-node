@@ -52,6 +52,20 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "REVISION=${GITHUB_SHA}" >> $GITHUB_OUTPUT
 
+      - name: Generate version
+
+        id: generate-version
+        uses: paulhatch/semantic-version@v5.0.2
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          major_regexp_flags: ""
+          minor_pattern: "(MINOR)"
+          minor_regexp_flags: ""
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: true
+
+          #version_format: "${major}.${minor}.${patch}-${{github.ref_name}}-prerelease${increment}"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -85,16 +99,16 @@ jobs:
 
       - name: Publish Helm chart to GHCR
         run: |
-          helm package charts/httpnode --version ${{ steps.prep.outputs.VERSION }}
-          helm push httpnode-${{ steps.prep.outputs.VERSION }}.tgz oci://ghcr.io/feedforwardsystems/charts
-          rm httpnode-${{ steps.prep.outputs.VERSION }}.tgz
+          helm package charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }}
+          helm push httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz oci://ghcr.io/feedforwardsystems/charts
+          rm httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz
       # - name: Publish Flux OCI artifact to GHCR
       #   run: |
-      #     flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.prep.outputs.VERSION }} \
+      #     flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} \
       #       --path="./kustomize" \
       #       --source="${{ github.event.repository.html_url }}" \
       #       --revision="${GITHUB_REF_NAME}/${GITHUB_SHA}"
-      #     flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.prep.outputs.VERSION }} --tag latest
+      #     flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} --tag latest
 
 
       - uses: AbsaOSS/k3d-action@v2
@@ -114,7 +128,7 @@ jobs:
           export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
           envsubst < manifests/deployment.yaml  | kubectl apply -f -
           kubectl rollout status deployment myapp
-          helm upgrade --install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.prep.outputs.VERSION }} 
+          helm upgrade --install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }} 
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
