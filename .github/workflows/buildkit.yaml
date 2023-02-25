@@ -85,7 +85,7 @@ jobs:
 
       - name: Publish Helm chart to GHCR
         run: |
-          helm package charts/httpnode --release ${{ steps.prep.outputs.VERSION }}
+          helm package charts/httpnode --version ${{ steps.prep.outputs.VERSION }}
           helm push httpnode-${{ steps.prep.outputs.VERSION }}.tgz oci://ghcr.io/feedforwardsystems/charts
           rm httpnode-${{ steps.prep.outputs.VERSION }}.tgz
       # - name: Publish Flux OCI artifact to GHCR
