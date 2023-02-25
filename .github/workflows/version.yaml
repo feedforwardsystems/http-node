@@ -1,0 +1,74 @@
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" , "test*"]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+env: 
+  WF_ENV: "work flow env"
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    environment: UAT
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+     
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate version
+     
+        id: generate-version
+        uses: paulhatch/semantic-version@v5.0.2
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          major_regexp_flags: ""
+          minor_pattern: "(MINOR)"
+          minor_regexp_flags: ""
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: true
+     
+          #version_format: "${major}.${minor}.${patch}-${{github.ref_name}}-prerelease${increment}"
+
+      # Runs a single command using the runners shell
+      - run: pwd; env
+      - run: chmod +x ./test.sh;  ./test.sh
+      # Runs a set of commands using the runners shell
+      - name: Run the main multi-line scripts
+        run: |
+          echo "dokcer image = ${{ steps.generate-version.outputs.version }}-${{github.ref_name}}-${{github.run_id}} "
+          echo "steps - VERSION  ---- ${{ steps.generate-version.outputs.version }}"
+          echo "steps ---VERSION tag ---- ${{ steps.generate-version.outputs.version_tag }}"
+          echo "steps ---increment ---- ${{ steps.generate-version.outputs.increment }}"
+          echo "steps ---current_commit ---- ${{ steps.generate-version.outputs.current_commit }}"
+          echo "steps ---previous_version ---- ${{ steps.generate-version.outputs.previous_version }}"
+          echo "steps ---previous_commit ---- ${{ steps.generate-version.outputs.previous_commit }}"
+          echo WF_ENV= ${WF_ENV}
+          echo WF_ENV double bracket= ${{env.WF_ENV}}
+          echo GITHUB_JOB= ${GITHUB_JOB}
+          echo GITHUB_JOB double bracket=${{ github.GITHUB_JOB }}
+          echo env from repo REPOVAR="${REPOVAR}"
+          echo secret  from repo AREPO="${{secrets.AREPO}}"
+          echo env from repo ONEENVVAR="${{ vars.ONEENVVAR}}"
+          echo env from repo AENV="${{ secrets.AENV }}"
+      - name: Create tag and push
+        if:  github.ref_name == 'main'
+        run: git tag ${{ steps.generate-version.outputs.version }} && git push --tags    
+
+      - name: Generate release
+        if:  github.ref_name == 'main'
+        uses: Roang-zero1/github-create-release-action@master
+        with:
+          created_tag: "${{ steps.generate-version.outputs.version_tag }}"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"  
