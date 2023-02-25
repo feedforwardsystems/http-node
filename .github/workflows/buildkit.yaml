@@ -130,7 +130,7 @@ jobs:
           # kubectl rollout status deployment myapp
           helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }}
           helm upgrade --install httpnodeapp \
-            --set image.tag ${{ steps.generate-version.outputs.version_tag }} \         
+            --set image.tag=${{ steps.generate-version.outputs.version_tag }} \         
             --version ${{ steps.generate-version.outputs.version_tag }} \
             oci://ghcr.io/feedforwardsystems/charts/httpnode --wait
 
