@@ -85,10 +85,9 @@ jobs:
 
       - name: Publish Helm chart to GHCR
         run: |
-          helm package charts/httpnode
-          helm push httpnode-0.1.0.tgz oci://ghcr.io/feedforwardsystems/charts
-          #helm push httpnode-${{ steps.prep.outputs.VERSION }}.tgz oci://ghcr.io/feedforwardsystems/charts
-          # rm httpnode-${{ steps.prep.outputs.VERSION }}.tgz
+          helm package charts/httpnode --release ${{ steps.prep.outputs.VERSION }}
+          helm push httpnode-${{ steps.prep.outputs.VERSION }}.tgz oci://ghcr.io/feedforwardsystems/charts
+          rm httpnode-${{ steps.prep.outputs.VERSION }}.tgz
       # - name: Publish Flux OCI artifact to GHCR
       #   run: |
       #     flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.prep.outputs.VERSION }} \
@@ -115,7 +114,7 @@ jobs:
           export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
           envsubst < manifests/deployment.yaml  | kubectl apply -f -
           kubectl rollout status deployment myapp
-          helm version
+          helm upgrade --install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.prep.outputs.VERSION }} 
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
