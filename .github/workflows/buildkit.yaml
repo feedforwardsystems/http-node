@@ -113,7 +113,7 @@ jobs:
 
       - uses: AbsaOSS/k3d-action@v2
         with:
-          cluster-name: "test-cluster-1"
+          cluster-name: "k3s-cluster-1"
           args: >-
             --agents 1
             --no-lb
@@ -129,10 +129,10 @@ jobs:
           # envsubst < manifests/deployment.yaml  | kubectl apply -f -
           # kubectl rollout status deployment myapp
           helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }}
-          helm upgrade --install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \
+          helm upgrade --install httpnodeapp \
+            --set image.tag ${{ steps.generate-version.outputs.version_tag }} \         
             --version ${{ steps.generate-version.outputs.version_tag }} \
-            --set image.tag ${{ steps.generate-version.outputs.version_tag }} \
-            --wait
+            oci://ghcr.io/feedforwardsystems/charts/httpnode --wait
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
