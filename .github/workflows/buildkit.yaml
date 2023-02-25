@@ -103,13 +103,13 @@ jobs:
           helm push httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz oci://ghcr.io/feedforwardsystems/charts
           rm httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz
 
-      - name: Publish Flux OCI artifact to GHCR
-        run: |
-          flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} \
-            --path="./kustomize" \
-            --source="${{ github.event.repository.html_url }}" \
-            --revision="${GITHUB_REF_NAME}/${GITHUB_SHA}"
-          flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} --tag latest
+      # - name: Publish Flux OCI artifact to GHCR
+      #   run: |
+      #     flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} \
+      #       --path="./kustomize" \
+      #       --source="${{ github.event.repository.html_url }}" \
+      #       --revision="${GITHUB_REF_NAME}/${GITHUB_SHA}"
+      #     flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} --tag latest
 
       - uses: AbsaOSS/k3d-action@v2
         with:
