@@ -138,13 +138,13 @@ jobs:
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
-      - name: Sign OCI artifacts
-        env:
-          COSIGN_EXPERIMENTAL: 1
-        run: |
-          cosign sign docker.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
-          cosign sign ghcr.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
-          cosign sign ghcr.io/feedforwardsystems/charts/podinfo:${{ steps.generate-version.outputs.version_tag }}
+      # - name: Sign OCI artifacts
+      #   env:
+      #     COSIGN_EXPERIMENTAL: 1
+      #   run: |
+      #     cosign sign docker.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
+      #     cosign sign ghcr.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
+      #     cosign sign ghcr.io/feedforwardsystems/charts/podinfo:${{ steps.generate-version.outputs.version_tag }}
 
       - name: Build and export to Docker
         uses: docker/build-push-action@v4
