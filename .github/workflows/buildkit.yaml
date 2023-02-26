@@ -2,35 +2,157 @@ name: Container Build
 
 on:
   push:
+    # tags: ['v*.*.*']
     branches:
-      - main
+      # - main
+      - actions-setup
   pull_request:
 
 jobs:
   build-image:
     name: Build Image
     runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      actions: read
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+
     steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v3
+
+      - uses: fluxcd/flux2/action@main
+
+      - name: Setup Cosign
+        uses: sigstore/cosign-installer@main
     ## required to enable multi-platform
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
     ## buildx
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-           
+        uses: docker/setup-buildx-action@v2
+    ## setup helm
+      - name: Install helm
+        uses: azure/setup-helm@v3
+        with:
+          # version: '<version>' # default is latest (stable)
+          token: ${{ secrets.GITHUB_TOKEN }} # only needed if version is 'latest'
+        id: install
+
+      - name: Prepare
+        id: prep
+        run: |
+          VERSION=sha-${GITHUB_SHA::8}
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF/refs\/tags\//}
+          fi
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "REVISION=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Generate version
+
+        id: generate-version
+        uses: paulhatch/semantic-version@v5.0.2
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          major_regexp_flags: ""
+          minor_pattern: "(MINOR)"
+          minor_regexp_flags: ""
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: true
+
+          #version_format: "${major}.${minor}.${patch}-${{github.ref_name}}-prerelease${increment}"
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and export to Docker
+      # - name: Login to ACR
+      #   uses: docker/login-action@v2
+      #   with:
+      #     registry: ${{ secrets.ACR_ENDPOINT }}
+      #     username: ${{ secrets.ACR_USERNAME }}
+      #     password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Login to ghcr.io registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and Push to GHCR
         uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: ghcr.io/feedforwardsystems/http-node:${{ steps.generate-version.outputs.version_tag }}
+          # target: test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Publish Helm chart to GHCR
+        run: |
+          helm package charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }}
+          helm push httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz oci://ghcr.io/feedforwardsystems/charts
+          rm httpnode-${{ steps.generate-version.outputs.version_tag }}.tgz
+
+      # - name: Publish Flux OCI artifact to GHCR
+      #   run: |
+      #     flux push artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} \
+      #       --path="./kustomize" \
+      #       --source="${{ github.event.repository.html_url }}" \
+      #       --revision="${GITHUB_REF_NAME}/${GITHUB_SHA}"
+      #     flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} --tag latest
+
+      - uses: AbsaOSS/k3d-action@v2
+        with:
+          cluster-name: "k3s-cluster-1"
+          args: >-
+            --agents 1
+            --no-lb
+            --k3s-arg "--no-deploy=traefik,servicelb,metrics-server@server:*"
+      
+      - name: Smoke test deployment in k3d Kubernetes
+        run: |
+          kubectl create secret docker-registry regcred \
+            --docker-server=https://ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }}
+          # export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
+          # envsubst < manifests/deployment.yaml  | kubectl apply -f -
+          # kubectl rollout status deployment myapp
+          helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \
+            --version ${{ steps.generate-version.outputs.version_tag }} \
+            --set image.tag=${{ steps.generate-version.outputs.version_tag }} | kubectl apply -f -
+          # helm install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \     
+          #   --version ${{ steps.generate-version.outputs.version_tag }} \
+          #   --set image.tag=${{ steps.generate-version.outputs.version_tag }} \   
+          #   --wait
+
+# kubectl exec deploy/myapp -- curl --fail localhost:8088
+
+      # - name: Sign OCI artifacts
+      #   env:
+      #     COSIGN_EXPERIMENTAL: 1
+      #   run: |
+      #     cosign sign docker.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
+      #     cosign sign ghcr.io/feedforwardsystems/podinfo:${{ steps.generate-version.outputs.version_tag }}
+      #     cosign sign ghcr.io/feedforwardsystems/charts/podinfo:${{ steps.generate-version.outputs.version_tag }}
+
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v4
         with:
           push: false
           load: true # Export to Docker Engine rather than pushing to a registry
-          tags: ${{ github.run_id }}
-          target: test
+          tags: ${{ steps.generate-version.outputs.version_tag }}
+          # target: test
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -38,9 +160,27 @@ jobs:
       - name: Run Trivy for all CVEs (non-blocking)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ github.run_id }}
+          image-ref: ${{ steps.generate-version.outputs.version_tag }}
           exit-code: 0
           format: table 
+
+      - name: Run Trivy for HIGH,CRITICAL CVEs and report (blocking)
+        id : trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.generate-version.outputs.version_tag }}
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: steps.trivy.outputs.exit_code == 0
+        with:
+          sarif_file: 'trivy-results.sarif'
 
       - name: Docker meta
         id: docker_meta
@@ -50,11 +190,12 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=04
             type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
             type=ref,event=pr
             type=ref,event=branch
             type=semver,pattern={{version}}
+
+# type=raw,value=04 (option to force a tag value)
 
       - name: Docker build
         uses: docker/build-push-action@v2
@@ -69,3 +210,19 @@ jobs:
 
           # platforms: linux/amd64,linux/arm64,linux/arm/v7
           platforms: linux/amd64
+
+          # build-args: |
+          #   version=${{ steps.tag.outputs.tag }}
+          # tags: ${{ secrets.ACR_ENDPOINT }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+
+      - name: Create tag and push
+        if:  github.ref_name == 'main'
+        run: git tag ${{ steps.generate-version.outputs.version }} && git push --tags    
+
+      - name: Generate release
+        if:  github.ref_name == 'main'
+        uses: Roang-zero1/github-create-release-action@master
+        with:
+          created_tag: "${{ steps.generate-version.outputs.version_tag }}"
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"  
