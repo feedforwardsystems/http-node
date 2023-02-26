@@ -128,11 +128,12 @@ jobs:
           # export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
           # envsubst < manifests/deployment.yaml  | kubectl apply -f -
           # kubectl rollout status deployment myapp
-          helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }}
-          helm upgrade --install 
-            --set image.tag=${{ steps.generate-version.outputs.version_tag }} \         
+          helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --version ${{ steps.generate-version.outputs.version_tag }} \
+            --set image.tag=${{ steps.generate-version.outputs.version_tag }}
+          helm upgrade --install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode      
             --version ${{ steps.generate-version.outputs.version_tag }} \
-            httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode --wait
+            --set image.tag=${{ steps.generate-version.outputs.version_tag }} \   
+            --wait
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
