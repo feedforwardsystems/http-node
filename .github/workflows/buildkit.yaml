@@ -151,7 +151,7 @@ jobs:
         with:
           push: false
           load: true # Export to Docker Engine rather than pushing to a registry
-          tags: ${{ github.run_id }}
+          tags: ${{ steps.generate-version.outputs.version_tag }}
           # target: test
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -160,7 +160,7 @@ jobs:
       - name: Run Trivy for all CVEs (non-blocking)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ github.run_id }}
+          image-ref: ${{ steps.generate-version.outputs.version_tag }}
           exit-code: 0
           format: table 
 
@@ -168,7 +168,7 @@ jobs:
         id : trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ github.run_id }}
+          image-ref: ${{ steps.generate-version.outputs.version_tag }}
           exit-code: 1
           ignore-unfixed: true
           vuln-type: 'os,library'
