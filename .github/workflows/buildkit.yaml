@@ -219,11 +219,11 @@ jobs:
           # tags: ${{ secrets.ACR_ENDPOINT }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
 
       - name: Create tag and push
-        # if:  github.ref_name == 'main'
+        if:  github.ref_name == 'main'
         run: git tag ${{ steps.generate-version.outputs.version }} && git push --tags    
 
       - name: Generate release
-        # if:  github.ref_name == 'main'
+        if:  github.ref_name == 'main'
         uses: Roang-zero1/github-create-release-action@master
         with:
           created_tag: "${{ steps.generate-version.outputs.version_tag }}"
