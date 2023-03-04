@@ -219,13 +219,22 @@ jobs:
           # tags: ${{ secrets.ACR_ENDPOINT }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
 
       - name: Create tag and push
-        if:  github.ref_name == 'main'
+        # if:  github.ref_name == 'main'
         run: git tag ${{ steps.generate-version.outputs.version }} && git push --tags    
 
       - name: Generate release
-        if:  github.ref_name == 'main'
+        # if:  github.ref_name == 'main'
         uses: Roang-zero1/github-create-release-action@master
         with:
           created_tag: "${{ steps.generate-version.outputs.version_tag }}"
         env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"  
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" 
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v4
+      - name: Check outputs
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
