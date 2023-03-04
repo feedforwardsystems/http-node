@@ -115,30 +115,30 @@ jobs:
       #       --revision="${GITHUB_REF_NAME}/${GITHUB_SHA}"
       #     flux tag artifact oci://ghcr.io/feedforwardsystems/manifests/httpnode:${{ steps.generate-version.outputs.version_tag }} --tag latest
 
-      - uses: AbsaOSS/k3d-action@v2
-        with:
-          cluster-name: "k3s-cluster-1"
-          args: >-
-            --agents 1
-            --no-lb
-            --k3s-arg "--no-deploy=traefik,servicelb,metrics-server@server:*"
+      # - uses: AbsaOSS/k3d-action@v2
+      #   with:
+      #     cluster-name: "k3s-cluster-1"
+      #     args: >-
+      #       --agents 1
+      #       --no-lb
+      #       --k3s-arg "--no-deploy=traefik,servicelb,metrics-server@server:*"
       
-      - name: Smoke test deployment in k3d Kubernetes
-        run: |
-          kubectl create secret docker-registry regcred \
-            --docker-server=https://ghcr.io \
-            --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GITHUB_TOKEN }}
-          # export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
-          # envsubst < manifests/deployment.yaml  | kubectl apply -f -
-          # kubectl rollout status deployment myapp
-          helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \
-            --version ${{ steps.generate-version.outputs.version_tag }} \
-            --set image.tag=${{ steps.generate-version.outputs.version_tag }} | kubectl apply -f -
-          # helm install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \     
-          #   --version ${{ steps.generate-version.outputs.version_tag }} \
-          #   --set image.tag=${{ steps.generate-version.outputs.version_tag }} \   
-          #   --wait
+      # - name: Smoke test deployment in k3d Kubernetes
+      #   run: |
+      #     kubectl create secret docker-registry regcred \
+      #       --docker-server=https://ghcr.io \
+      #       --docker-username=${{ github.actor }} \
+      #       --docker-password=${{ secrets.GITHUB_TOKEN }}
+      #     # export TESTING_IMAGE=ghcr.io/feedforwardsystems/http-node:"$GITHUB_RUN_ID"
+      #     # envsubst < manifests/deployment.yaml  | kubectl apply -f -
+      #     # kubectl rollout status deployment myapp
+      #     helm template httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \
+      #       --version ${{ steps.generate-version.outputs.version_tag }} \
+      #       --set image.tag=${{ steps.generate-version.outputs.version_tag }} | kubectl apply -f -
+      #     # helm install httpnodeapp oci://ghcr.io/feedforwardsystems/charts/httpnode \     
+      #     #   --version ${{ steps.generate-version.outputs.version_tag }} \
+      #     #   --set image.tag=${{ steps.generate-version.outputs.version_tag }} \   
+      #     #   --wait
 
 # kubectl exec deploy/myapp -- curl --fail localhost:8088
 
@@ -231,11 +231,27 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" 
 
-      - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v4
-      - name: Check outputs
-        if: ${{ steps.cpr.outputs.pull-request-number }}
+      # - name: Create Pull Request
+      #   id: cpr
+      #   uses: peter-evans/create-pull-request@v4
+      # - name: Check outputs
+      #   if: ${{ steps.cpr.outputs.pull-request-number }}
+      #   run: |
+      #     echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+      #     echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+
+
+
+      - name: Create commits
         run: |
-          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+          git config user.name 'Peter Evans'
+          git config user.email 'peter-evans@users.noreply.github.com'
+          date +%s > report.txt
+          git commit -am "Modify tracked file during workflow"
+          date +%s > new-report.txt
+          git add -A
+          git commit -m "Add untracked file during workflow"
+      - name: Uncommitted change
+        run: date +%s > report.txt
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
