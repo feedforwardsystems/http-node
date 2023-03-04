@@ -19,7 +19,8 @@ jobs:
     permissions:
       packages: write
       actions: read
-      contents: read # for actions/checkout to fetch code
+      contents: write # for actions/checkout to fetch code
+      pull-requests: write
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
 
     steps:
